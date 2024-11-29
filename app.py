@@ -112,6 +112,104 @@ def login():
 
     return jsonify({"message": f"Welcome, {member.name}!"}), 200
 
+# Get All Members
+@app.route('/members', methods=['GET'])
+def get_all_members():
+    """
+    Get all members.
+
+    Example request:
+    GET /members
+
+    Example response (JSON):
+    [
+        {
+            "id": 1,
+            "name": "John Doe",
+            "email": "john.doe@example.com",
+            "username": "johndoe"
+        },
+        {
+            "id": 2,
+            "name": "Jane Doe",
+            "email": "jane.doe@example.com",
+            "username": "janedoe"
+        }
+    ]
+    """
+    members = Member.query.all()
+    member_list = [
+        {"id": member.id, "name": member.name, "email": member.email, "username": member.username}
+        for member in members
+    ]
+    return jsonify(member_list), 200
+
+# Get Member by ID
+@app.route('/members/<int:member_id>', methods=['GET'])
+def get_member_by_id(member_id):
+    """
+    Get a member by their ID.
+
+    Example request:
+    GET /members/1
+
+    Example response (JSON):
+    {
+        "id": 1,
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "username": "johndoe"
+    }
+    """
+    member = Member.query.get(member_id)
+    if not member:
+        return jsonify({"error": "Member not found"}), 404
+
+    member_data = {
+        "id": member.id,
+        "name": member.name,
+        "email": member.email,
+        "username": member.username
+    }
+    return jsonify(member_data), 200
+
+# Update Member Endpoint
+@app.route('/update/<int:member_id>', methods=['PUT'])
+def update_member(member_id):
+    """
+    Update a member's data.
+    """
+    data = request.get_json()
+    member = Member.query.get(member_id)
+
+    if not member:
+        return jsonify({"error": "Member not found"}), 404
+
+    member.name = data.get('name', member.name)
+    member.email = data.get('email', member.email)
+    member.username = data.get('username', member.username)
+    
+    if 'password' in data:
+        member.password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+
+    db.session.commit()
+    return jsonify({"message": "Member data updated successfully"}), 200
+
+# Delete Member Endpoint
+@app.route('/delete/<int:member_id>', methods=['DELETE'])
+def delete_member(member_id):
+    """
+    Delete a member by ID.
+    """
+    member = Member.query.get(member_id)
+
+    if not member:
+        return jsonify({"error": "Member not found"}), 404
+
+    db.session.delete(member)
+    db.session.commit()
+    return jsonify({"message": "Member deleted successfully"}), 200
+
 # Run the app
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
