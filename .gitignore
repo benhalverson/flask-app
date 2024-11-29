@@ -1,1 +1,75 @@
-venv
+# Byte-compiled files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Virtual environment
+venv/
+.env/
+*.env
+
+# Configuration files
+*.cfg
+*.ini
+*.toml
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs and debug files
+*.log
+*.pid
+
+# Test results
+coverage/
+.coverage
+nosetests.xml
+*.out
+*.tap
+.junit.xml
+
+# Docker
+*.env
+docker-compose.override.yml
+docker-compose.override.yaml
+*.iml
+
+# Python egg files
+*.egg
+*.egg-info/
+.eggs/
+
+# Build artifacts
+build/
+dist/
+*.wheel
+*.egg-info/
+
+# Static and media files
+staticfiles/
+media/
+
+# Flask-specific
+instance/
+.mypy_cache/
+.db
+
+# Secrets
+secrets.json
+config.json
+
+# Cache files
+.cache/
+.pip/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# MacOS-specific
+.DS_Store
+
+# Windows-specific
+Thumbs.db
