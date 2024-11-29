@@ -1,6 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
+from functools import wraps
+import jwt
+import datetime
 
 app = Flask(__name__)
 
@@ -24,29 +27,29 @@ class Member(db.Model):
 with app.app_context():
     db.create_all()
 
+# JWT Token Decorator
+def token_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"error": "Token is missing"}), 401
+        try:
+            token = token.split("Bearer ")[1]  # Extract token after "Bearer "
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            g.member = Member.query.get(data['id'])
+            if not g.member:
+                raise ValueError("User not found")
+        except Exception as e:
+            return jsonify({"error": "Invalid or expired token", "details": str(e)}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Register Endpoint
 @app.route('/register', methods=['POST'])
 def register():
     """
     Register a new user.
-
-    Example request (JSON):
-    {
-        "name": "John Doe",
-        "email": "john.doe@example.com",
-        "username": "johndoe",
-        "password": "securepassword"
-    }
-
-    Example response (JSON):
-    {
-        "message": "User registered successfully"
-    }
-
-    Error responses:
-    - {"error": "All fields are required"} (400)
-    - {"error": "Username already exists"} (400)
-    - {"error": "Email already exists"} (400)
     """
     data = request.get_json()
     name = data.get('name')
@@ -57,42 +60,29 @@ def register():
     if not all([name, email, username, password]):
         return jsonify({"error": "All fields are required"}), 400
 
-    # Check if username or email already exists
     if Member.query.filter_by(username=username).first():
         return jsonify({"error": "Username already exists"}), 400
     if Member.query.filter_by(email=email).first():
         return jsonify({"error": "Email already exists"}), 400
 
-    # Hash the password
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-    # Create a new member
     new_member = Member(name=name, email=email, username=username, password=hashed_password)
     db.session.add(new_member)
     db.session.commit()
 
-    return jsonify({"message": "User registered successfully"}), 201
+    token = jwt.encode({
+        'id': new_member.id,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }, app.config['SECRET_KEY'], algorithm="HS256")
+
+    return jsonify({"message": "User registered successfully", "token": token}), 201
 
 # Login Endpoint
 @app.route('/login', methods=['POST'])
 def login():
     """
     Login an existing user.
-
-    Example request (JSON):
-    {
-        "username": "johndoe",
-        "password": "securepassword"
-    }
-
-    Example successful response (JSON):
-    {
-        "message": "Welcome, John Doe!"
-    }
-
-    Error responses:
-    - {"error": "Username and password are required"} (400)
-    - {"error": "Invalid username or password"} (401)
     """
     data = request.get_json()
     username = data.get('username')
@@ -101,41 +91,28 @@ def login():
     if not all([username, password]):
         return jsonify({"error": "Username and password are required"}), 400
 
-    # Find user by username
     member = Member.query.filter_by(username=username).first()
-    if not member:
+    if not member or not bcrypt.check_password_hash(member.password, password):
         return jsonify({"error": "Invalid username or password"}), 401
 
-    # Check password
-    if not bcrypt.check_password_hash(member.password, password):
-        return jsonify({"error": "Invalid username or password"}), 401
+    # Generate JWT Token
+    token = jwt.encode({
+        'id': member.id,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }, app.config['SECRET_KEY'], algorithm="HS256")
 
-    return jsonify({"message": f"Welcome, {member.name}!"}), 200
+    return jsonify({"message": f"Welcome, {member.name}!", "token": token}), 200
 
-# Get All Members
+# Get All Members (Protected)
 @app.route('/members', methods=['GET'])
+@token_required
 def get_all_members():
     """
-    Get all members.
+    Get all members (Requires Authentication).
 
     Example request:
     GET /members
-
-    Example response (JSON):
-    [
-        {
-            "id": 1,
-            "name": "John Doe",
-            "email": "john.doe@example.com",
-            "username": "johndoe"
-        },
-        {
-            "id": 2,
-            "name": "Jane Doe",
-            "email": "jane.doe@example.com",
-            "username": "janedoe"
-        }
-    ]
+    Authorization: Bearer <token>
     """
     members = Member.query.all()
     member_list = [
@@ -144,22 +121,12 @@ def get_all_members():
     ]
     return jsonify(member_list), 200
 
-# Get Member by ID
+# Get Member by ID (Protected)
 @app.route('/members/<int:member_id>', methods=['GET'])
+@token_required
 def get_member_by_id(member_id):
     """
-    Get a member by their ID.
-
-    Example request:
-    GET /members/1
-
-    Example response (JSON):
-    {
-        "id": 1,
-        "name": "John Doe",
-        "email": "john.doe@example.com",
-        "username": "johndoe"
-    }
+    Get a member by their ID (Requires Authentication).
     """
     member = Member.query.get(member_id)
     if not member:
@@ -173,11 +140,12 @@ def get_member_by_id(member_id):
     }
     return jsonify(member_data), 200
 
-# Update Member Endpoint
+# Update Member (Protected)
 @app.route('/update/<int:member_id>', methods=['PUT'])
+@token_required
 def update_member(member_id):
     """
-    Update a member's data.
+    Update a member's data (Requires Authentication).
     """
     data = request.get_json()
     member = Member.query.get(member_id)
@@ -195,11 +163,12 @@ def update_member(member_id):
     db.session.commit()
     return jsonify({"message": "Member data updated successfully"}), 200
 
-# Delete Member Endpoint
+# Delete Member (Protected)
 @app.route('/delete/<int:member_id>', methods=['DELETE'])
+@token_required
 def delete_member(member_id):
     """
-    Delete a member by ID.
+    Delete a member by ID (Requires Authentication).
     """
     member = Member.query.get(member_id)
 

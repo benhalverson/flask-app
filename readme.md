@@ -29,8 +29,10 @@ curl -X POST http://localhost:5000/register \
 Example Successful Response
 ```json
 {
-  "message": "User registered successfully"
+  "message": "User registered successfully",
+  "token": "<your_jwt_token>"
 }
+
 ```
 
 Error Responses
@@ -56,7 +58,69 @@ curl -X POST http://localhost:5000/login \
 Example Successful Response
 ```json
 {
-  "message": "Login successful
+  "message": "Welcome, John Doe!",
+  "token": "<your_jwt_token>"
 }
+
 ```
 
+Authenticated Endpoints
+The following endpoints require a valid JWT token in the Authorization header.
+Header Format:
+```bash
+Authorization: Bearer <your_jwt_token>
+```
+
+
+Get All Members
+Endpoint: GET /members
+Description: Retrieves a list of all members.
+
+Example Request
+
+```bash
+curl -X GET http://localhost:5000/members \
+-H "Authorization Bearer <your_jwt_token>"
+```
+
+Update Member
+Endpoint: PUT /update/<member_id>
+Description: Updates a member's data.
+
+Example Request
+
+```bash
+curl -X PUT http://localhost:5000/update/1 \
+-H "Authorization: Bearer <your_jwt_token>" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "Updated Name",
+  "email": "updated.email@example.com"
+}'
+```
+
+Example Successful Response
+```json
+{
+  "message": "Member updated successfully"
+}
+
+```
+
+Delete Member
+Endpoint: DELETE /delete/<member_id>
+Description: Deletes a member by their ID.
+
+Example Request
+```bash
+curl -X DELETE http://localhost:5000/delete/1 \
+-H "Authorization: Bearer <your_jwt_token>"
+```
+
+Example Successful Response
+```json
+{
+  "message": "Member deleted successfully"
+}
+
+```
