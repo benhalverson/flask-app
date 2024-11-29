@@ -34,10 +34,13 @@ services:
     environment:
       FLASK_APP: app.py
       FLASK_RUN_HOST: 0.0.0.0
+      FLASK_ENV: development  # Enable development mode for auto-reload
       DB_HOST: db
       DB_USER: root
       DB_PASSWORD: rootpassword
       DB_NAME: flask_app
+    volumes:
+      - .:/app  # Mount the current directory to the container
 
 volumes:
   db_data:
